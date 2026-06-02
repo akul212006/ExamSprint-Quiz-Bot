@@ -115,9 +115,13 @@ def main() -> None:
 # ===== RENDER PORT BINDING - DO NOT REMOVE =====
 class PingHandler(BaseHTTPRequestHandler):
     def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b'OK')
+        if self.path == '/ping' or self.path == '/':
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b'OK')
+        else:
+            self.send_response(404)
+            self.end_headers()
     def log_message(self, format, *args):
         pass
 
