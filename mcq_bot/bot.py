@@ -1,6 +1,9 @@
 import asyncio
 import logging
+import os
 import sys
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from telegram import Update
 from telegram.ext import (
@@ -107,6 +110,24 @@ def main() -> None:
         )
     else:
         application.run_polling(allowed_updates=Update.ALL_TYPES)
+
+
+# ===== RENDER PORT BINDING - DO NOT REMOVE =====
+class PingHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b'OK')
+    def log_message(self, format, *args):
+        pass
+
+def run_ping_server():
+    port = int(os.environ.get('PORT', 8080))
+    server = HTTPServer(('0.0.0.0', port), PingHandler)
+    server.serve_forever()
+
+threading.Thread(target=run_ping_server, daemon=True).start()
+# ===== END RENDER PORT BINDING =====
 
 
 if __name__ == "__main__":
