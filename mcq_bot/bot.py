@@ -118,6 +118,8 @@ def main() -> None:
         application.run_polling(
             allowed_updates=Update.ALL_TYPES,
             drop_pending_updates=True,
+            close_loop=False,
+            stop_signals=None
         )
 
 
