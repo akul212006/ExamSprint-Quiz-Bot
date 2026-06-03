@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import signal
 import sys
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -109,7 +110,15 @@ def main() -> None:
             webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}",
         )
     else:
-        application.run_polling(allowed_updates=Update.ALL_TYPES)
+        def _signal_handler(signum, frame):
+            logger.warning("Ignoring signal %s to keep bot running.", signum)
+
+        signal.signal(signal.SIGINT, _signal_handler)
+        signal.signal(signal.SIGTERM, _signal_handler)
+        application.run_polling(
+            allowed_updates=Update.ALL_TYPES,
+            drop_pending_updates=True,
+        )
 
 
 # ===== RENDER PORT BINDING - DO NOT REMOVE =====
