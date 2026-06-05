@@ -5,13 +5,18 @@ import signal
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler, PollAnswerHandler, TypeHandler
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler, PollAnswerHandler, TypeHandler, CallbackQueryHandler
 
 from config import BOT_TOKEN, WEBHOOK_URL
 from handlers.admin import (
     CANCEL,
     STATUS,
     WAIT_LAUNCH_GROUPS,
+    admin_menu,
+    menu_action_callback,
+    menu_start_quiz_callback,
+    launch_action_callback,
+    launch_toggle_callback,
     launch_start,
     launch_groups,
     register_group_chat,
@@ -43,6 +48,7 @@ def build_app() -> Application:
     conv_handler = ConversationHandler(
         entry_points=[
             CommandHandler("startquiz", start_quiz),
+            CallbackQueryHandler(menu_start_quiz_callback, pattern=r"^menu_start_quiz$"),
         ],
         states={
             1: [MessageHandler(filters.Document.PDF, handle_pdf)],
@@ -66,10 +72,18 @@ def build_app() -> Application:
 
     application.add_handler(conv_handler)
     application.add_handler(CommandHandler("start", start_command))
+    application.add_handler(CommandHandler("menu", admin_menu))
     application.add_handler(CommandHandler("join", join_quiz))
     application.add_handler(launch_handler)
     application.add_handler(CommandHandler("leaderboard", leaderboard_command))
     application.add_handler(CommandHandler("status", STATUS))
+    application.add_handler(MessageHandler(filters.ChatType.GROUPS, register_group_chat))
+    application.add_handler(CallbackQueryHandler(launch_toggle_callback, pattern=r"^launch_toggle:"))
+    application.add_handler(
+        CallbackQueryHandler(launch_action_callback, pattern=r"^launch_(selected|all|cancel)$")
+    )
+    application.add_handler(CallbackQueryHandler(menu_action_callback, pattern=r"^menu_(?!start_quiz$)"))
+    application.add_handler(CallbackQueryHandler(join_quiz, pattern=r"^join_quiz$"))
     application.add_handler(PollAnswerHandler(handle_poll_answer))
 
     async def debug_all(update, context):
