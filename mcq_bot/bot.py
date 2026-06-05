@@ -1,32 +1,17 @@
-import asyncio
-import logging
 import os
-import signal
-import sys
+import logging
 import threading
+import signal
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from telegram import Update
-from telegram.ext import (
-    Application,
-    CallbackQueryHandler,
-    CommandHandler,
-    ConversationHandler,
-    MessageHandler,
-    PollAnswerHandler,
-    filters,
-)
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler, PollAnswerHandler, TypeHandler
 
 from config import BOT_TOKEN, WEBHOOK_URL
 from handlers.admin import (
     CANCEL,
     STATUS,
     WAIT_LAUNCH_GROUPS,
-    admin_menu,
-    menu_action_callback,
-    menu_start_quiz_callback,
-    launch_action_callback,
-    launch_toggle_callback,
     launch_start,
     launch_groups,
     register_group_chat,
@@ -39,11 +24,14 @@ from handlers.leaderboard import leaderboard_command
 from handlers.quiz import join_quiz, handle_poll_answer
 
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    stream=sys.stdout,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+
+async def start_command(update: Update, context) -> None:
+    await update.message.reply_text("Bot is running. Use /startquiz to begin.")
 
 
 def build_app() -> Application:
@@ -55,7 +43,6 @@ def build_app() -> Application:
     conv_handler = ConversationHandler(
         entry_points=[
             CommandHandler("startquiz", start_quiz),
-            CallbackQueryHandler(menu_start_quiz_callback, pattern=r"^menu_start_quiz$"),
         ],
         states={
             1: [MessageHandler(filters.Document.PDF, handle_pdf)],
@@ -78,21 +65,17 @@ def build_app() -> Application:
     )
 
     application.add_handler(conv_handler)
-    application.add_handler(launch_handler)
-    application.add_handler(CommandHandler("menu", admin_menu))
-    application.add_handler(CommandHandler("status", STATUS))
+    application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("join", join_quiz))
+    application.add_handler(launch_handler)
     application.add_handler(CommandHandler("leaderboard", leaderboard_command))
-    application.add_handler(MessageHandler(filters.ChatType.GROUPS, register_group_chat))
-    application.add_handler(
-        CallbackQueryHandler(launch_toggle_callback, pattern=r"^launch_toggle:")
-    )
-    application.add_handler(
-        CallbackQueryHandler(launch_action_callback, pattern=r"^launch_(selected|all|cancel)$")
-    )
-    application.add_handler(CallbackQueryHandler(menu_action_callback, pattern=r"^menu_(?!start_quiz$)"))
-    application.add_handler(CallbackQueryHandler(join_quiz, pattern=r"^join_quiz$"))
+    application.add_handler(CommandHandler("status", STATUS))
     application.add_handler(PollAnswerHandler(handle_poll_answer))
+
+    async def debug_all(update, context):
+        logger.info(f"UPDATE RECEIVED: {update.update_id} - {update.effective_message}")
+
+    application.add_handler(TypeHandler(Update, debug_all), group=999)
 
     return application
 
@@ -110,14 +93,10 @@ def main() -> None:
             webhook_url=f"{WEBHOOK_URL}/{BOT_TOKEN}",
         )
     else:
-        def _signal_handler(signum, frame):
-            logger.warning("Ignoring signal %s to keep bot running.", signum)
-
-        signal.signal(signal.SIGINT, _signal_handler)
-        signal.signal(signal.SIGTERM, _signal_handler)
+        signal.signal(signal.SIGTERM, lambda s, f: logger.warning("Ignoring SIGTERM to keep bot running"))
         application.run_polling(
             allowed_updates=Update.ALL_TYPES,
-            drop_pending_updates=True,
+            drop_pending_updates=False,
             close_loop=False,
             stop_signals=None
         )
@@ -145,5 +124,11 @@ threading.Thread(target=run_ping_server, daemon=True).start()
 # ===== END RENDER PORT BINDING =====
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    while True:
+        try:
+            main()
+        except Exception as e:
+            logger.error(f"Bot crashed: {e}. Restarting in 5 seconds...")
+            import time
+            time.sleep(5)
