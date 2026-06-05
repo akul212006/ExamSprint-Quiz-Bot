@@ -115,10 +115,7 @@ async def menu_action_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 async def start_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    user_id = update.effective_user.id if update.effective_user else 0
-    if not _is_admin(user_id):
-        await update.message.reply_text("You are not authorized to start a quiz.")
-        return ConversationHandler.END
+    logger.info(f"startquiz called by user_id: {update.effective_user.id}")
 
     await update.message.reply_text("Send the PDF containing MCQs.")
     return WAIT_PDF
