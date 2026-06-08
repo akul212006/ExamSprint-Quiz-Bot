@@ -4,6 +4,7 @@ import threading
 import signal
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
+import telegram
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler, PollAnswerHandler, TypeHandler, CallbackQueryHandler
 
@@ -137,12 +138,15 @@ def run_ping_server():
 threading.Thread(target=run_ping_server, daemon=True).start()
 # ===== END RENDER PORT BINDING =====
 
-
 if __name__ == '__main__':
+    import time
+    logger.info("Starting bot...")
     while True:
         try:
             main()
+        except telegram.error.Conflict:
+            logger.error("Conflict error - another instance running. Waiting 30 seconds...")
+            time.sleep(30)
         except Exception as e:
-            logger.error(f"Bot crashed: {e}. Restarting in 5 seconds...")
-            import time
-            time.sleep(5)
+            logger.error(f"Bot crashed with error: {e}. Restarting in 10 seconds...")
+            time.sleep(10)
